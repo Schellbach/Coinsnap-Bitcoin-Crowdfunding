@@ -31,7 +31,7 @@ Coinsnap is **Bitcoin payment software for merchants** and a brand of **Onlinesh
 
 ## Current version and requirements
 
-Current plugin version: **1.2.0**
+Current plugin version: **1.2.1**
 
 - Tested with WordPress **6.9.x**
 - PHP **8.0 or newer**
@@ -228,4 +228,9 @@ No. Coinsnap follows a non-custodial / self-custody approach and does not hold m
 * Update: Currency exchange rate calculation and display.
 * Update: Donor's form interface.
 * Compatibility with Wordpress 6.9.1 is tested.
+
+#### 1.2.1 :: 2026-10-19
+* Security: The payment webhook secret is kept on the server. It is no longer returned to visitors, and webhook registration is limited to administrators.
+* Security: A payment notification is recorded only when its signature matches and the payment provider confirms that the invoice is settled.
+* Security: Existing webhook secrets are regenerated on upgrade. Open the plugin settings and click Check so Coinsnap or BTCPay Server receives the new secret.
 
