@@ -3,7 +3,7 @@
  * Plugin Name:        Coinsnap Bitcoin Crowdfunding
  * Plugin URI:         https://coinsnap.io/wp-plugins/wp-bitcoin-crowdfunding/
  * Description:        Easy Bitcoin crowdfundings on a WordPress website
- * Version:            1.2.0
+ * Version:            1.2.1
  * Author:             Coinsnap
  * Author URI:         https://coinsnap.io/
  * Text Domain:        coinsnap-bitcoin-crowdfunding
@@ -21,7 +21,7 @@ if ( ! defined( 'COINSNAP_BITCOIN_CROWDFUNDING_REFERRAL_CODE' ) ) {
     define( 'COINSNAP_BITCOIN_CROWDFUNDING_REFERRAL_CODE', 'D2SXIW' );
 }
 if ( ! defined( 'COINSNAP_BITCOIN_CROWDFUNDING_VERSION' ) ) {
-    define( 'COINSNAP_BITCOIN_CROWDFUNDING_VERSION', '1.2.0' );
+    define( 'COINSNAP_BITCOIN_CROWDFUNDING_VERSION', '1.2.1' );
 }
 if ( ! defined( 'COINSNAP_BITCOIN_CROWDFUNDING_PHP_VERSION' ) ) {
     define( 'COINSNAP_BITCOIN_CROWDFUNDING_PHP_VERSION', '8.0' );
@@ -425,6 +425,53 @@ class Coinsnap_Bitcoin_Crowdfunding
     }
 }
 new Coinsnap_Bitcoin_Crowdfunding();
+
+/**
+ * Regenerate a disclosed webhook secret on upgrade and ask an administrator
+ * to register it with the payment provider.
+ */
+function coinsnap_bitcoin_crowdfunding_maybe_upgrade() {
+    $version_key = 'coinsnap_bitcoin_crowdfunding_db_version';
+    $installed = get_option($version_key, '');
+    if ($installed === COINSNAP_BITCOIN_CROWDFUNDING_VERSION) {
+        return;
+    }
+
+    $existing_secret = get_option('coinsnap_webhook_secret', '');
+    $had_secret = is_string($existing_secret) && $existing_secret !== '';
+    $is_upgrade = (is_string($installed) && $installed !== '' && version_compare($installed, '1.2.1', '<'))
+        || ($installed === '' && $had_secret);
+
+    if ($is_upgrade && $had_secret) {
+        Coinsnap_Bitcoin_Crowdfunding_Webhooks::rotate_webhook_secret();
+        Coinsnap_Bitcoin_Crowdfunding_Webhooks::sync_stored_webhook();
+        update_option('coinsnap_webhook_resync_required', '1', false);
+    }
+
+    if (get_option($version_key, null) === null) {
+        add_option($version_key, COINSNAP_BITCOIN_CROWDFUNDING_VERSION, '', false);
+    } else {
+        update_option($version_key, COINSNAP_BITCOIN_CROWDFUNDING_VERSION, false);
+    }
+}
+add_action('init', 'coinsnap_bitcoin_crowdfunding_maybe_upgrade');
+
+function coinsnap_bitcoin_crowdfunding_webhook_admin_notice() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    if (get_option('coinsnap_webhook_resync_required') !== '1') {
+        return;
+    }
+
+    $url = admin_url('admin.php?page=coinsnap-bitcoin-crowdfunding');
+    echo '<div class="notice notice-warning"><p>';
+    echo esc_html__('Coinsnap Bitcoin Crowdfunding regenerated the payment webhook secret. Open the plugin settings and click Check so Coinsnap or BTCPay Server receives the new secret. Until then, new contributions may not be recorded.', 'coinsnap-bitcoin-crowdfunding');
+    echo ' <a href="' . esc_url($url) . '">';
+    echo esc_html__('Open settings', 'coinsnap-bitcoin-crowdfunding');
+    echo '</a></p></div>';
+}
+add_action('admin_notices', 'coinsnap_bitcoin_crowdfunding_webhook_admin_notice');
 
 add_action('init', function() {
     // Setting up and handling custom endpoint for api key redirect from BTCPay Server.

@@ -50,75 +50,20 @@
 
     }
 
-    function checkWebhooks(storeId, apiKey, btcpayUrl) {
-      const headers = btcpayUrl ? { 'Authorization': `token ${apiKey}` } : { 'x-api-key': apiKey, };
-      const url = btcpayUrl
-        ? `${btcpayUrl}/api/v1/stores/${storeId}/webhooks`
-        : `https://app.coinsnap.io/api/v1/stores/${storeId}/webhooks`
-
+    function registerProviderWebhook(storeId, apiKey, webhookUrl, btcpayUrl) {
       return $.ajax({
-        url: url,
-        method: 'GET',
-        contentType: 'application/json',
-        headers: headers
-      })
-        .then((response) => response)
-        .catch(() => []);
-    }
-
-    const getWebhookSecret = async () => {
-      const response = await fetch('/wp-json/crowdfunding/v1/get-wh-secret');
-      const data = await response.json();
-      return data;
-    }
-
-    async function createWebhook(storeId, apiKey, webhookUrl, btcpayUrl) {
-      const webhookSecret = await getWebhookSecret();
-      const data = {
-        url: webhookUrl,
-        events: ['Settled'],
-        secret: webhookSecret
-      }
-
-      const headers = btcpayUrl
-        ? { 'Authorization': `token ${apiKey}` }
-        : { 'x-api-key': apiKey };
-
-      const url = btcpayUrl
-        ? `${btcpayUrl}/api/v1/stores/${storeId}/webhooks`
-        : `https://app.coinsnap.io/api/v1/stores/${storeId}/webhooks`
-
-      return $.ajax({
-        url: url,
+        url: coinsnap_bitcoin_crowdfunding_ajax.ajax_url,
         method: 'POST',
-        contentType: 'application/json',
-        headers: headers,
-        data: JSON.stringify(data)
-
-      })
-    }
-
-    async function updateWebhook(storeId, apiKey, webhookUrl, webhookId, btcpayUrl) {
-      const webhookSecret = await getWebhookSecret();
-      const data = {
-        url: webhookUrl,
-        events: ['Settled'],
-        secret: webhookSecret
-      }
-      const headers = btcpayUrl ? { 'Authorization': `token ${apiKey}` } : { 'x-api-key': apiKey, };
-      const url = btcpayUrl
-        ? `${btcpayUrl}/api/v1/stores/${storeId}/webhooks/${webhookId}`
-        : `https://app.coinsnap.io/api/v1/stores/${storeId}/webhooks/${webhookId}`
-
-      return $.ajax({
-        url: url,
-        method: 'PUT',
-        contentType: 'application/json',
-        headers: headers,
-        data: JSON.stringify(data)
-      })
-        .then((response) => response)
-        .catch(() => []);
+        dataType: 'json',
+        data: {
+          action: 'coinsnap_bitcoin_crowdfunding_register_webhook',
+          apiNonce: coinsnap_bitcoin_crowdfunding_ajax.nonce,
+          storeId: storeId,
+          apiKey: apiKey,
+          webhookUrl: webhookUrl,
+          btcpayUrl: btcpayUrl || ''
+        }
+      });
     }
 
     function toggleProviderSettings() {
@@ -157,12 +102,10 @@
         const coinsnapApiKey = $('#coinsnap_api_key').val();
         connection = await checkConnection(coinsnapStoreId, coinsnapApiKey);
         if (connection) {
-          const webhooks = await checkWebhooks(coinsnapStoreId, coinsnapApiKey);
-          const webhookFound = webhooks?.find(webhook => webhook.url === webhookUrl);
-          if (!webhookFound) {
-            await createWebhook(coinsnapStoreId, coinsnapApiKey, webhookUrl);
-          } else {
-            await updateWebhook(coinsnapStoreId, coinsnapApiKey, webhookUrl, webhookFound.id);
+          try {
+            await registerProviderWebhook(coinsnapStoreId, coinsnapApiKey, webhookUrl);
+          } catch (error) {
+            console.error('Webhook registration failed');
           }
         }
       } else {
@@ -171,12 +114,10 @@
         const btcpayUrl = $('#btcpay_url').val();
         connection = await checkConnection(btcpayStoreId, btcpayApiKey, btcpayUrl);
         if (connection) {
-          const webhooks = await checkWebhooks(btcpayStoreId, btcpayApiKey, btcpayUrl)
-          const webhookFound = webhooks?.find(webhook => webhook.url === webhookUrl);
-          if (!webhookFound) {
-            await createWebhook(btcpayStoreId, btcpayApiKey, webhookUrl, btcpayUrl);
-          } else {
-            await updateWebhook(btcpayStoreId, btcpayApiKey, webhookUrl, webhookFound.id, btcpayUrl);
+          try {
+            await registerProviderWebhook(btcpayStoreId, btcpayApiKey, webhookUrl, btcpayUrl);
+          } catch (error) {
+            console.error('Webhook registration failed');
           }
         }
       }
